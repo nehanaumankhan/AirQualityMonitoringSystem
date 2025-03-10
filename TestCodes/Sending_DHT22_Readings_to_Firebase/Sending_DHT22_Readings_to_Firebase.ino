@@ -10,10 +10,6 @@ DHT dht(DHTPIN, DHTTYPE);
 
 float temperature = 0;
 float humidity = 0;
-FirebaseJson temperature_json;
-FirebaseJson humidity_json;
-
-#define DEVICE_UID "1X"
 
 #define WIFI_SSID "HUAWEI-2.4G"
 #define WIFI_PASSWORD "malikza01"
@@ -25,12 +21,9 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-String device_location = "ESP32_1";  // Define device location
 String databasePath = ""; 
-String fuid = ""; 
 unsigned long elapsedMillis = 0; 
 unsigned long update_interval = 10000; 
-int count = 0; 
 bool isAuthenticated = false;
 
 void Wifi_Init() {
@@ -57,8 +50,7 @@ void firebase_init() {
     if (Firebase.signUp(&config, &auth, "", "")) {
         Serial.println("Success");
         isAuthenticated = true;
-        databasePath = "/" + device_location;
-        fuid = auth.token.uid.c_str();
+        databasePath = "/sensor_data"; // Path to store sensor data
     } else {
         Serial.printf("Failed, %s\n", config.signer.signupError.message.c_str());
         isAuthenticated = false;
@@ -68,7 +60,7 @@ void firebase_init() {
     Firebase.begin(&config, &auth);
 }
 
-void updateSensorReadings(){
+void updateSensorReadings() {
     Serial.println("------------------------------------");
     Serial.println("Reading Sensor data ...");
     temperature = dht.readTemperature();
@@ -80,8 +72,6 @@ void updateSensorReadings(){
     }
     Serial.printf("Temperature reading: %.2f \n", temperature);
     Serial.printf("Humidity reading: %.2f \n", humidity);
-    temperature_json.set("value", temperature);
-    humidity_json.set("value", humidity);
 }
 
 void setup() {
@@ -93,25 +83,6 @@ void setup() {
     firebase_init();
     // Initialise DHT library
     dht.begin();
-    // Initialise temperature and humidity json data
-    temperature_json.add("deviceuid", DEVICE_UID);
-    temperature_json.add("name", "DHT22-Temp");
-    temperature_json.add("type", "Temperature");
-    temperature_json.add("location", device_location);
-    temperature_json.add("value", temperature);
-    // Print out initial temperature values
-    String jsonStr;
-    temperature_json.toString(jsonStr, true);
-    Serial.println(jsonStr);
-    humidity_json.add("deviceuid", DEVICE_UID);
-    humidity_json.add("name", "DHT22-Hum");
-    humidity_json.add("type", "Humidity");
-    humidity_json.add("location", device_location);
-    humidity_json.add("value", humidity);
-    // Print out initial humidity values
-    String jsonStr2;
-    humidity_json.toString(jsonStr2, true);
-    Serial.println(jsonStr2);
 }
 
 void uploadSensorData() {
@@ -122,46 +93,32 @@ void uploadSensorData() {
         // Get the current timestamp
         if (Firebase.getCurrentTime(fbdo)) {
             String timestamp = fbdo.to<String>();
-            temperature_json.set("timestamp", timestamp);
-            humidity_json.set("timestamp", timestamp);
+
+            // Create a JSON object for the sensor data
+            FirebaseJson sensorData;
+            sensorData.set("temperature", temperature);
+            sensorData.set("humidity", humidity);
+            sensorData.set("timestamp", timestamp);
+
+            // Upload the sensor data to Firebase
+            String nodePath = databasePath + "/" + timestamp; // Use timestamp as the node name
+            if (Firebase.setJSON(fbdo, nodePath.c_str(), sensorData)) {
+                Serial.println("PASSED"); 
+                Serial.println("PATH: " + fbdo.dataPath());
+                Serial.println("TYPE: " + fbdo.dataType());
+                Serial.println("ETag: " + fbdo.ETag());
+                Serial.print("VALUE: ");
+                printResult(fbdo); // See addons/RTDBHelper.h
+                Serial.println("------------------------------------");
+                Serial.println();
+            } else {
+                Serial.println("FAILED");
+                Serial.println("REASON: " + fbdo.errorReason());
+                Serial.println("------------------------------------");
+                Serial.println();
+            }
         } else {
             Serial.println("Failed to get current time");
-            return;
-        }
-
-        String temperature_node = databasePath + "/temperature"; 
-        String humidity_node = databasePath + "/humidity";
-
-        if (Firebase.setJSON(fbdo, temperature_node.c_str(), temperature_json)) {
-            Serial.println("PASSED"); 
-            Serial.println("PATH: " + fbdo.dataPath());
-            Serial.println("TYPE: " + fbdo.dataType());
-            Serial.println("ETag: " + fbdo.ETag());
-            Serial.print("VALUE: ");
-            printResult(fbdo); //see addons/RTDBHelper.h
-            Serial.println("------------------------------------");
-            Serial.println();
-        } else {
-            Serial.println("FAILED");
-            Serial.println("REASON: " + fbdo.errorReason());
-            Serial.println("------------------------------------");
-            Serial.println();
-        }
-
-        if (Firebase.setJSON(fbdo, humidity_node.c_str(), humidity_json)) {
-            Serial.println("PASSED");
-            Serial.println("PATH: " + fbdo.dataPath());
-            Serial.println("TYPE: " + fbdo.dataType());
-            Serial.println("ETag: " + fbdo.ETag()); 
-            Serial.print("VALUE: ");
-            printResult(fbdo); //see addons/RTDBHelper.h
-            Serial.println("------------------------------------");
-            Serial.println();
-        } else {
-            Serial.println("FAILED");
-            Serial.println("REASON: " + fbdo.errorReason());
-            Serial.println("------------------------------------");
-            Serial.println();
         }
     }
 }
