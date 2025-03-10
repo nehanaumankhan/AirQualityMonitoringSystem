@@ -3,6 +3,7 @@
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 #include "DHT.h"
+#include <time.h>  // Include time library for formatting
 
 #define DHTPIN 26
 #define DHTTYPE DHT22
@@ -21,9 +22,9 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-String databasePath = ""; 
-unsigned long elapsedMillis = 0; 
-unsigned long update_interval = 10000; 
+String databasePath = "/sensor_data";
+unsigned long elapsedMillis = 0;
+unsigned long update_interval = 10000;
 bool isAuthenticated = false;
 
 void Wifi_Init() {
@@ -43,46 +44,46 @@ void firebase_init() {
     config.api_key = API_KEY;
     config.database_url = DATABASE_URL;
     Firebase.reconnectWiFi(true);
-    
+
     Serial.println("------------------------------------");
-    Serial.println("Sign up new user...");
-    
+    Serial.println("Signing up new user...");
+
     if (Firebase.signUp(&config, &auth, "", "")) {
-        Serial.println("Success");
+        Serial.println("Sign-up successful");
         isAuthenticated = true;
-        databasePath = "/sensor_data"; // Path to store sensor data
     } else {
-        Serial.printf("Failed, %s\n", config.signer.signupError.message.c_str());
+        Serial.printf("Sign-up failed: %s\n", config.signer.signupError.message.c_str());
         isAuthenticated = false;
     }
-    
+
     config.token_status_callback = tokenStatusCallback;
     Firebase.begin(&config, &auth);
 }
 
 void updateSensorReadings() {
     Serial.println("------------------------------------");
-    Serial.println("Reading Sensor data ...");
+    Serial.println("Reading Sensor data...");
     temperature = dht.readTemperature();
     humidity = dht.readHumidity();
-    // Check if any reads failed and exit early (to try again).
+
     if (isnan(temperature) || isnan(humidity)) {
         Serial.println(F("Failed to read from DHT sensor!"));
         return;
     }
-    Serial.printf("Temperature reading: %.2f \n", temperature);
-    Serial.printf("Humidity reading: %.2f \n", humidity);
+
+    Serial.printf("Temperature: %.2f°C\n", temperature);
+    Serial.printf("Humidity: %.2f%%\n", humidity);
 }
 
-void setup() {
-    // Initialise serial communication for local diagnostics
-    Serial.begin(115200);
-    // Initialise Connection with location WiFi
-    Wifi_Init();
-    // Initialise firebase configuration and signup anonymously
-    firebase_init();
-    // Initialise DHT library
-    dht.begin();
+String getFormattedTimestamp() {
+    time_t now = Firebase.getCurrentTime();
+    if (now > 0) {
+        struct tm *timeinfo = gmtime(&now);
+        char buffer[25]; // Enough space for formatted string
+        strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", timeinfo);
+        return String(buffer);
+    }
+    return "0000-00-00T00:00:00Z";  // Fallback timestamp if failed
 }
 
 void uploadSensorData() {
@@ -90,39 +91,41 @@ void uploadSensorData() {
         elapsedMillis = millis();
         updateSensorReadings();
 
-        // Get the current timestamp
-        if (Firebase.getCurrentTime(fbdo)) {
-            String timestamp = fbdo.to<String>();
+        String timestamp = getFormattedTimestamp();
+        if (timestamp == "0000-00-00T00:00:00Z") {
+            Serial.println("Failed to get current time from Firebase");
+            return;
+        }
 
-            // Create a JSON object for the sensor data
-            FirebaseJson sensorData;
-            sensorData.set("temperature", temperature);
-            sensorData.set("humidity", humidity);
-            sensorData.set("timestamp", timestamp);
+        FirebaseJson sensorData;
+        sensorData.set("temperature", temperature);
+        sensorData.set("humidity", humidity);
+        sensorData.set("timestamp", timestamp);
 
-            // Upload the sensor data to Firebase
-            String nodePath = databasePath + "/" + timestamp; // Use timestamp as the node name
-            if (Firebase.setJSON(fbdo, nodePath.c_str(), sensorData)) {
-                Serial.println("PASSED"); 
-                Serial.println("PATH: " + fbdo.dataPath());
-                Serial.println("TYPE: " + fbdo.dataType());
-                Serial.println("ETag: " + fbdo.ETag());
-                Serial.print("VALUE: ");
-                printResult(fbdo); // See addons/RTDBHelper.h
-                Serial.println("------------------------------------");
-                Serial.println();
-            } else {
-                Serial.println("FAILED");
-                Serial.println("REASON: " + fbdo.errorReason());
-                Serial.println("------------------------------------");
-                Serial.println();
-            }
+        String nodePath = databasePath + "/" + timestamp;
+        if (Firebase.setJSON(fbdo, nodePath.c_str(), sensorData)) {
+            Serial.println("Data upload successful!");
+            Serial.println("PATH: " + fbdo.dataPath());
+            Serial.println("TYPE: " + fbdo.dataType());
+            Serial.print("VALUE: ");
+            printResult(fbdo);
+            Serial.println("------------------------------------");
         } else {
-            Serial.println("Failed to get current time");
+            Serial.println("Data upload FAILED");
+            Serial.println("REASON: " + fbdo.errorReason());
+            Serial.println("------------------------------------");
         }
     }
 }
 
+void setup() {
+    Serial.begin(115200);
+    Wifi_Init();
+    firebase_init();
+    dht.begin();
+}
+
 void loop() {
     uploadSensorData();
+    delay(1000);
 }
