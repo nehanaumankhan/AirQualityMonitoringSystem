@@ -39,44 +39,6 @@ This repository contains the code and documentation for an Air Quality Monitorin
 
 ---
 
-## Repository Structure
-Organize your repository into the following folders and files:
-
-Air-Quality-Monitoring-System/
-├── README.md
-├── Hardware/
-│ ├── Circuit_Diagram.png
-│ ├── PCB_Design (Future)
-│ └── Casing_Design (Future)
-├── Firmware/
-│ ├── 01_Hello_World/
-│ │ └── Hello_World.ino
-│ ├── 02_Sensor_Testing/
-│ │ ├── DHT22_Test.ino
-│ │ ├── MQ135_Test.ino
-│ │ └── PMS5003_Test.ino
-│ ├── 03_Sensor_Integration/
-│ │ ├── DHT22_MQ135_Integration.ino
-│ │ └── All_Sensors_Integration.ino
-│ ├── 04_Firebase_Integration/
-│ │ ├── Firebase_Random_Data.ino
-│ │ └── Firebase_DHT22_Data.ino
-│ ├── 05_OTA_Updates/
-│ │ ├── Basic_OTA.ino
-│ │ ├── OTA_Update_With_MQ135.ino
-│ │ └── OTA_Update_With_PM2.5.ino
-│ └── 06_Final_Code/
-│ └── Air_Quality_Monitoring_Final.ino
-├── Application/
-│ └── (Flutter-based mobile application - Work in Progress)
-└── Documentation/
-├── Firebase_Setup_Guide.md
-├── OTA_Setup_Guide.md
-└── Sensor_Calibration_Guide.md
-
-
----
-
 ## Setup Instructions
 1. **Hardware Setup**:
    - Connect the sensors to the ESP32 as per the circuit diagram.
