@@ -1,126 +1,85 @@
-#include <HardwareSerial.h>
+#include <Arduino.h>
 #include <DHT.h>
+#include "PMS.h"
 
-// PMS5003 Serial Port connections
-#define RXD2 16 // PMS5003 TX → ESP32 RX
-#define TXD2 17 // PMS5003 RX → ESP32 TX
+// DHT22 Setup
+#define DHTPIN 26
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
 
-// MQ135 & DHT22 Sensors
-#define MQ135_PIN 4
-#define DHT_PIN 26
-#define DHT_TYPE DHT22
+// MQ135 Setup
+const int smokesensor = 25;
 
-// Initialize Serial & Sensors
-HardwareSerial pmsSerial(2);
-DHT dht(DHT_PIN, DHT_TYPE);
+// PMS5003 Setup
+#define PMS_READ_INTERVAL 9  // Interval between readings
+PMS pms(Serial2);  // Use Serial2 for PMS5003 communication
 
-// PMS5003 Data Structure
-struct pms5003data {
-    uint16_t framelen;
-    uint16_t pm10_standard, pm25_standard, pm100_standard;
-    uint16_t pm10_env, pm25_env, pm100_env;
-    uint16_t particles_03um, particles_05um, particles_10um, particles_25um, particles_50um, particles_100um;
-    uint16_t unused;
-    uint16_t checksum;
-};
-struct pms5003data data;
-
-// Function to wake up PMS5003
-void wakeUpPMS5003() {
-    uint8_t wakeupCmd[] = {0x42, 0x4D, 0xE4, 0x00, 0x01, 0x73}; 
-    pmsSerial.write(wakeupCmd, sizeof(wakeupCmd));
-    delay(1000);
+// Initialize the PMS5003 sensor
+bool pms5003_init() {
+  Serial2.begin(9600, SERIAL_8N1, 16, 17);  // Start Serial2 (RX2=16, TX2=17)
+  delay(1000);  // Wait for the sensor to initialize
+  return true;
 }
 
-// Function to read PMS5003 data
-boolean readPMSdata(Stream *s) {
-    if (!s->available()) {
-        return false;
-    }
-
-    if (s->peek() != 0x42) { // Check start byte
-        s->read();
-        return false;
-    }
-
-    if (s->available() < 32) {
-        return false;
-    }
-
-    uint8_t buffer[32];
-    uint16_t sum = 0;
-    s->readBytes(buffer, 32);
-
-    // Checksum calculation
-    for (uint8_t i = 0; i < 30; i++) {
-        sum += buffer[i];
-    }
-
-    uint16_t buffer_u16[15];
-    for (uint8_t i = 0; i < 15; i++) {
-        buffer_u16[i] = buffer[2 + i * 2 + 1];
-        buffer_u16[i] += (buffer[2 + i * 2] << 8);
-    }
-
-    memcpy((void *)&data, (void *)buffer_u16, 30);
-
-    if (sum != data.checksum) {
-        Serial.println("⚠️ PMS5003 Checksum Failure");
-        return false;
-    }
+// Read data from the PMS5003 sensor
+bool pms5003_read(uint16_t *pmSp1_0, uint16_t *pmSp2_5, uint16_t *pmSp10_0,
+                  uint16_t *pmAe1_0, uint16_t *pmAe2_5, uint16_t *pmAe10_0) {
+  PMS::DATA data;
+  while (Serial2.available()) Serial2.read();
+  if (pms.readUntil(data, 2U * PMS::SINGLE_RESPONSE_TIME)) {
+    *pmSp1_0 = data.PM_SP_UG_1_0;
+    *pmSp2_5 = data.PM_SP_UG_2_5;
+    *pmSp10_0 = data.PM_SP_UG_10_0;
+    *pmAe1_0 = data.PM_AE_UG_1_0;
+    *pmAe2_5 = data.PM_AE_UG_2_5;
+    *pmAe10_0 = data.PM_AE_UG_10_0;
     return true;
+  }
+  return false;
 }
 
 void setup() {
-    Serial.begin(115200);
-    pmsSerial.begin(9600, SERIAL_8N1, RXD2, TXD2);
-    dht.begin();
-
-    wakeUpPMS5003(); // Wake up PMS5003
-    delay(3000); // Allow sensors to stabilize
+  Serial.begin(115200);
+  dht.begin();
+  if (pms5003_init()) {
+    Serial.println("PMS5003 initialized successfully!");
+  } else {
+    Serial.println("Failed to initialize PMS5003!");
+  }
 }
 
 void loop() {
-    Serial.println("\n--- SENSOR READINGS ---");
+  // Read MQ-135 analog value
+  int digitalNumber = analogRead(smokesensor);
 
-    // Wake up PMS5003 every 60 seconds to prevent sleep
-    static unsigned long lastWakeupTime = 0;
-    if (millis() - lastWakeupTime > 60000) {
-        wakeUpPMS5003();
-        lastWakeupTime = millis();
-    }
+  // Read temperature & humidity from DHT22
+  float temp = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
-    // Read PMS5003 Data
-    if (readPMSdata(&pmsSerial)) {
-        Serial.println("---------------------------------------");
-        Serial.println("Concentration Units (standard)");
-        Serial.print("PM 1.0: "); Serial.print(data.pm10_standard);
-        Serial.print("\tPM 2.5: "); Serial.print(data.pm25_standard);
-        Serial.print("\tPM 10: "); Serial.println(data.pm100_standard);
-        Serial.println("---------------------------------------");
-    } else {
-        Serial.println("⚠️ PMS5003 Data Not Available! (Check Wiring & Power)");
-    }
+  // Read PMS5003 sensor data
+  uint16_t pmSp1_0, pmSp2_5, pmSp10_0, pmAe1_0, pmAe2_5, pmAe10_0;
+  if (pms5003_read(&pmSp1_0, &pmSp2_5, &pmSp10_0, &pmAe1_0, &pmAe2_5, &pmAe10_0)) {
+    Serial.println("\nPMS5003 Data:");
+    Serial.printf("PM1.0 (Standard): %d µg/m³\n", pmSp1_0);
+    Serial.printf("PM2.5 (Standard): %d µg/m³\n", pmSp2_5);
+    Serial.printf("PM10.0 (Standard): %d µg/m³\n", pmSp10_0);
+    Serial.printf("PM1.0 (Environmental): %d µg/m³\n", pmAe1_0);
+    Serial.printf("PM2.5 (Environmental): %d µg/m³\n", pmAe2_5);
+    Serial.printf("PM10.0 (Environmental): %d µg/m³\n", pmAe10_0);
+  } else {
+    Serial.println("Failed to read data from PMS5003!");
+  }
 
-    // Read MQ135 Sensor Data
-    int mq135Value = analogRead(MQ135_PIN);
-    Serial.print("MQ-135 Value: ");
-    Serial.println(mq135Value);
+  // Print MQ-135 and DHT22 readings
+  Serial.println("\nSensor Readings:");
+  Serial.print("MQ-135 Value: ");
+  Serial.println(digitalNumber);
+  Serial.print("Temperature: ");
+  Serial.print(temp);
+  Serial.print(" C ");
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" % ");  
 
-    // Read Temperature & Humidity from DHT22
-    float temp = dht.readTemperature();
-    float humidity = dht.readHumidity();
-
-    if (isnan(temp) || isnan(humidity)) {
-        Serial.println("⚠️ Failed to read from DHT22 Sensor!");
-    } else {
-        Serial.print("Temperature: ");
-        Serial.print(temp);
-        Serial.print(" C ");
-        Serial.print("Humidity: ");
-        Serial.print(humidity);
-        Serial.println(" % ");  
-    }
-
-    delay(2000);
+  delay(2000);
 }

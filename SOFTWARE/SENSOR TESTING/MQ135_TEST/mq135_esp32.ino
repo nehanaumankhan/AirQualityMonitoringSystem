@@ -1,4 +1,4 @@
-const int smokesensor = 4;
+const int smokesensor = 25;
 
 void setup() {
   Serial.begin(115200);
