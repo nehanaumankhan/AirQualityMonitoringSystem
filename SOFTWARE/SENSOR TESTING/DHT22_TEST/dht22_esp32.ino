@@ -1,5 +1,5 @@
 #include <DHT.h>
-DHT dht(26, DHT22); 
+DHT dht(32, DHT22); 
 void setup(){
   dht.begin();
   delay(2000);

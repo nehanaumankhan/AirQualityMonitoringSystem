@@ -8,7 +8,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
-#define DHTPIN 26
+#define DHTPIN 32
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 

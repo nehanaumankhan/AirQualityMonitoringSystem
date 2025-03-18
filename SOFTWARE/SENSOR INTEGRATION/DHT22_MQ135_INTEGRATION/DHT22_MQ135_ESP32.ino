@@ -1,7 +1,7 @@
 #include <DHT.h>
 
-DHT dht(26, DHT22);
-const int smokesensor = 4;  
+DHT dht(32, DHT22);
+const int smokesensor = 33;  
 
 void setup() {
   Serial.begin(115200);

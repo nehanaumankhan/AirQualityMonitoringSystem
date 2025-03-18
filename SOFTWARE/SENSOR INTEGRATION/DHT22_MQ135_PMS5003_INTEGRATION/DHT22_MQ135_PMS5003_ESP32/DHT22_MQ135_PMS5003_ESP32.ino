@@ -3,12 +3,12 @@
 #include "PMS.h"
 
 // DHT22 Setup
-#define DHTPIN 26
+#define DHTPIN 32
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
 // MQ135 Setup
-const int smokesensor = 25;
+const int smokesensor = 33;
 
 // PMS5003 Setup
 #define PMS_READ_INTERVAL 9  // Interval between readings

@@ -8,11 +8,11 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
-#define DHTPIN 26
+#define DHTPIN 32
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
-#define MQ135_PIN 34 // MQ135 sensor connected to GPIO34 (ADC1)
+#define MQ135_PIN 33 // MQ135 sensor connected to GPIO33 (ADC1)
 
 float temperature = 0;
 float humidity = 0;

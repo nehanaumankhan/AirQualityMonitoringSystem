@@ -5,7 +5,7 @@
 #include "DHT.h"
 #include <time.h>  // Include time library for formatting
 
-#define DHTPIN 26
+#define DHTPIN 32
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
