@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "382565316027",
+    "firebase_url": "https://airqualitymonitoringsyst-6c370-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "airqualitymonitoringsyst-6c370",
+    "storage_bucket": "airqualitymonitoringsyst-6c370.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:382565316027:android:ee9605d2d8706a6139c09e",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFu3abNeZ94E33U4vIg2yYD0hmo9jfIVY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
